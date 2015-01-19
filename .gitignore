@@ -41,3 +41,9 @@ output/*/index.html
 # Sphinx
 docs/_build
 README.html
+
+/.Python
+
+/.settings/org.eclipse.core.resources.prefs
+
+/include/
