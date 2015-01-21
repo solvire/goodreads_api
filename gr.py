@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # some pieces were borrowed from https://github.com/deis/deis/ client
+# specifically this: https://raw.githubusercontent.com/deis/deis/master/client/deis.py
 # lots of parts were modeled off https://github.com/GrumpyRainbow/goodreads-py
 # could not get the rainbow modules ^^ to work so I just stripped what I needed and put them in here.
  
@@ -15,153 +16,30 @@ Auth commands::
   access_tokens        Get the tokens to resume the session later 
   user                 Get id of user who authorized OAuth.
 
-Author commands::
-
-  books                Paginate an author's books.
-  show                 Get info about an author by id.
-
-Book commands::
-
-  isbn_to_id           Get the Goodreads book ID given an ISBN. 
-  review_counts        Get review statistics given a list of ISBNs. 
-  show                 Get the reviews for a book given a Goodreads book id. 
-  show_by_isbn         Get the reviews for a book given an ISBN. 
-  title                Get the reviews for a book given a title string. 
-
-Comment commands::
-
-  create
-  list
-
-Events commands::
-
-  list
-
-Fanship commands::
-
-  create
-  destroy
-  show
-
-Followers commands::
-
-  create
-  destroy
-
-Friend commands::
-
-  confirm_recommendation
-  confirm_request
-  requests
-  create
-
-Group commands::
-
-  join
-  list
-  members
-  search
-  show
-
-List commands::
-
-  book 
-  
-Notifications commands::
-
-  show
-
-Notifications commands::
-
-  all
-
-OwnedBooks commands::
-
-  create
-  list
-  show
-  update
-
-Quotes commands::
-
-  create
-
-Ratings commands::
-
-  create
-  destroy
-
-ReadStatuses commands::
-
-  show
-
-Recommendations commands::
-
-  show
-
-Review commands::
-
-  create
-  edit
-  list
-  recent_reviews
-  show
-  show_by_user_and_book
-
-Search commands::
-
-  authors
-  books
-
-Series commands::
-
-  show
-  list
-  work
-
-Shelves commands::
-
-  add_to_shelf
-  add_books_to_shelves
-  list
-
-Topic commands::
-
-  create
-  group_folder
-  show
-  unread_group
-
-Updates commands::
-
-  friends
-
-UserShelves commands::
-
-  create
-  update
-
 User commands::
 
-  show
-  compare
-  followers
-  following
-  friends
+  status
+  comment
+  event
+  fan
+  follower
+  friend
+  group
+  list
+  notification
+  books                get the list of the users books
+  quote
+  rate
+  review
+  shelf
+  
+Subcommands, use ``gr help [subcommand]`` to learn more::
 
-UserStatus commands::
-
-  create
-  destroy
-  show
-  index
-
-Work commands::
-
-  editions
-
-  gr -h | --help
-  gr --version
+  author               Author specific details
+  book                 Get info about an author by id.
+  search
+  series
+  topic
 
 Options:
   -h --help     Show this screen.
@@ -178,6 +56,7 @@ import locale
 import logging
 import os.path
 import re
+import requests
 import subprocess
 import sys
 import time
@@ -198,8 +77,7 @@ __license__ = "MIT"
 
 def _dispatch_cmd(method, args):
     logger = logging.getLogger(__name__)
-    if args.get('--app'):
-        args['--app'] = args['--app'].lower()
+
     try:
         method(args)
     except EnvironmentError as err:
@@ -266,7 +144,7 @@ class GRClient():
     '''Gr Client'''
     
     session = None
-    host = "https://www.goodreads.com/"
+    host = "https://www.goodreads.com"
     client_id = "fhKd7UFFtWKFXU779QS2mA"
     client_secret = 'LJDsWEfkzMXoP3do8mJO04ZrTjJAQlL0b9Wiuz0f7qY'
     key = "nPwv45LOlOfy0dry1C7Gcw"
@@ -353,19 +231,77 @@ class GRClient():
         """
         Valid commands for author:
 
-        books                Paginate an author's books.
-        show                 Get info about an author by id. 
+        author:info       Get info about an author by id. 
+        author:books      Paginate an author's books.
 
         Use `gr help [command]` to learn more.
         """
+        sys.argv[1] = 'author:info'
+        args = docopt(self.author_info.__doc__)
+        return self.author_info(args)
+    
+    def author_info(self,args):
+        """
+        Show the authors information page 
+
+        Usage: gr author:info [options]
+
+        Options:
+          -a --author_id=<author_id>    author id
+        """
+        print(args)
+        author_id = args.get('--author_id')
+        
+        if not author_id:
+            raise Exception("--author_id needed ")
+        
+        payload = {'id': author_id, 'key': self.client_id }
+        r = requests.get(self.host + "/author/show.xml", params=payload)
+        
+        print(xmltodict.parse(r.text))
+        print(r.text)
         return
     
-    def author_show(self,args):
+    def author_books(self,args):
         """
         Get the list of books from this author
         """
-        
         return
+    
+    def user(self, args):
+        """
+        Valid commands for author:
+
+        user:books      Paginate a users book list
+        user:info       Get info about an author by id. 
+
+        Use `gr help [command]` to learn more.
+        """
+        return  
+    
+    
+    def user_books(self,args):
+        """
+        Show the users list of books 
+
+        Usage: gr user:books [options]
+
+        Options:
+          -a --user_id=<user_id>    GR user id
+        """
+        print(args)
+        user_id = args.get('--user_id')
+        
+        if not user_id:
+            raise Exception("--user_id needed ")
+        
+        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
+        r = requests.get(self.host + "/owned_books/user", params=payload)
+        
+#         print(xmltodict.parse(r.text))
+        print(r.text)
+        return
+        
     
 class GRRequestError(Exception):
     """ Custom request exception """
@@ -408,7 +344,28 @@ class GRRequest:
         if data_dict.has_key('error'):
             raise GRRequestError(data_dict['error'], url_extension)
         return data_dict['GRResponse']
-        
+
+from collections import OrderedDict
+SHORTCUTS = OrderedDict([
+    ('create', 'apps:create'),
+    ('destroy', 'apps:destroy'),
+    ('info', 'apps:info'),
+    ('login', 'auth:login'),
+    ('logout', 'auth:logout'),
+    ('logs', 'apps:logs'),
+    ('open', 'apps:open'),
+    ('passwd', 'auth:passwd'),
+    ('pull', 'builds:create'),
+    ('register', 'auth:register'),
+    ('rollback', 'releases:rollback'),
+    ('run', 'apps:run'),
+    ('scale', 'ps:scale'),
+    ('sharing', 'perms:list'),
+    ('sharing:list', 'perms:list'),
+    ('sharing:add', 'perms:create'),
+    ('sharing:remove', 'perms:delete'),
+    ('whoami', 'auth:whoami'),
+])       
 
 def parse_args(cmd):
     """
@@ -420,19 +377,25 @@ def parse_args(cmd):
     else:
         cmd = sys.argv[1]
         help_flag = False
+    # swap cmd with shortcut
+    if cmd in SHORTCUTS:
+        cmd = SHORTCUTS[cmd]
+        # change the cmdline arg itself for docopt
+        if not help_flag:
+            sys.argv[1] = cmd
+        else:
+            sys.argv[2] = cmd
     # convert : to _ for matching method names and docstrings
     if ':' in cmd:
         cmd = '_'.join(cmd.split(':'))
     return cmd, help_flag
 
+
 def main():
     '''Main entry point for the gr CLI.'''
-    args = docopt(__doc__, version=__version__)
-    
     _init_logger()
     cli = GRClient()
-    args = docopt(__doc__, version=__version__,
-                  options_first=True)
+    args = docopt(__doc__, version=__version__,options_first=True)
     cmd = args['<command>']
     cmd, help_flag = parse_args(cmd)
     # print help if it was asked for
