@@ -21,7 +21,7 @@ class GRSession:
         self.access_token_secret = access_token_secret
 
 
-    def oath_start(self):
+    def oauth_start(self):
         """ Start oauth, get tokens return authorization url"""
         # Create auth service
         goodreads_service = OAuth1Service(
@@ -55,7 +55,7 @@ class GRSession:
         self.access_token = self.session.access_token
         self.access_token_secret = self.session.access_token_secret
 
-    def oath_resume(self):
+    def oauth_resume(self):
         """ Create a session when access tokens are already available """
         self.session = OAuth1Session(
                         consumer_key = self.client_key,
@@ -69,10 +69,10 @@ class GRSession:
         # Are there parameters?
         if len(data) > 0:
             url += '?'
-        response = self.session.post('http://www.goodreads.com/'+url, params=data)
+        response = self.session.post(url, params=data)
         if response.status_code == 201:
             data_dict = xmltodict.parse(response.content)
-            return data_dict['GoodreadsResponse']
+            return data_dict['GRResponse']
         else:
             raise Exception('Cannot create resource: %s' % response.status_code)
 
@@ -83,9 +83,10 @@ class GRSession:
         if len(data) > 0:
             url += '?'
             
-        response = self.session.get('https://www.goodreads.com/'+url, params=data)
+        response = self.session.get(url, params=data)
         if response.status_code == 200:
+            return response
             data_dict = xmltodict.parse(response.content)
-            return data_dict['GoodreadsResponse']
+            return data_dict['GRResponse']
         else:
             raise Exception('Unable to GET: %s' % response.status_code)

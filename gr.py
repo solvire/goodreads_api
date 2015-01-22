@@ -4,7 +4,6 @@
 # specifically this: https://raw.githubusercontent.com/deis/deis/master/client/deis.py
 # lots of parts were modeled off https://github.com/GrumpyRainbow/goodreads-py
 # could not get the rainbow modules ^^ to work so I just stripped what I needed and put them in here.
- 
 '''gr
 
 
@@ -23,7 +22,7 @@ User commands::
   event
   fan
   follower
-  friend
+  friends              get a list of user's friends
   group
   list
   notification
@@ -31,7 +30,8 @@ User commands::
   quote
   rate
   review
-  shelf
+  shelf                get the list of books from a specific shelf
+  shelves              get the list of the shelves the user has (read, to-read, etc)
   
 Subcommands, use ``gr help [subcommand]`` to learn more::
 
@@ -47,8 +47,6 @@ Options:
   
 NOTE: make sure you set up your environment variables or store the account information locally in 
 '''
-
-from __future__ import unicode_literals, print_function
 from docopt import docopt
 from docopt import DocoptExit
 import json
@@ -189,9 +187,10 @@ class GRClient():
                                  access_token_secret)
 
         if access_token and access_token_secret:
-            self.session.oath_resume()
+            print("resuming session")
+            self.session.oauth_resume()
         else: # Access not yet granted, allow via browser
-            url = self.session.oath_start()
+            url = self.session.oauth_start()
             webbrowser.open(url)
             while raw_input('Have you authorized me? (y/n) ') != 'y':
                 pass
@@ -272,8 +271,11 @@ class GRClient():
         """
         Valid commands for author:
 
-        user:books      Paginate a users book list
         user:info       Get info about an author by id. 
+        user:books      Paginate a users book list
+        user:friends    Get a list of the user's friends
+        user:shelves    Get the user's shelves
+        user:shelf      Get the list of books from a specific shelf 
 
         Use `gr help [command]` to learn more.
         """
@@ -287,8 +289,11 @@ class GRClient():
         Usage: gr user:books [options]
 
         Options:
-          -a --user_id=<user_id>    GR user id
+          -u --user_id=<user_id>    GR user id
         """
+        self.auth_authenticate(args)
+        if not self.session:
+            raise GRSessionError("No authenticated session.")
         print(args)
         user_id = args.get('--user_id')
         
@@ -296,12 +301,112 @@ class GRClient():
             raise Exception("--user_id needed ")
         
         payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
-        r = requests.get(self.host + "/owned_books/user", params=payload)
+        r = self.session.get(self.host + "/owned_books/user", payload)
         
 #         print(xmltodict.parse(r.text))
         print(r.text)
         return
+    
+    def user_friends(self,args):
+        """
+        Show the users list of books 
+
+        Usage: gr user:friends [options]
+
+        Options:
+          -u --user_id=<user_id>    GR user id
+        """
+        self.auth_authenticate(args)
+        if not self.session:
+            raise GRSessionError("No authenticated session.")
+            
+        print(args)
+        user_id = args.get('--user_id')
         
+        if not user_id:
+            raise Exception("--user_id needed ")
+        
+        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
+        r = self.session.get(self.host + "/friend/user/" +user_id, payload)
+        
+#         print(xmltodict.parse(r.text))
+        print(r.text)
+        return
+    
+    def user_shelves(self,args):
+        """
+        Show the users list of shelves 
+
+        Usage: gr user:shelves [options]
+
+        Options:
+          -u --user_id=<user_id>    GR user id
+        """
+        self.auth_authenticate(args)
+        if not self.session:
+            raise GRSessionError("No authenticated session.")
+            
+        print(args)
+        user_id = args.get('--user_id')
+        
+        if not user_id:
+            raise Exception("--user_id needed ")
+        
+        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
+        r = self.session.get(self.host + "/shelf/list/" +user_id, payload)
+        
+#         print(xmltodict.parse(r.text))
+        print(r.text)
+        return
+    
+    def user_shelf(self,args):
+        """
+        Show the users list of books on a shelf 
+
+        Usage: gr user:shelf [options]
+
+        Options:
+          -u --user_id=<user_id>    GR user id
+          -s --shelf=<shelf>        [default: 'read']
+          --sort=<sort>             title, author, cover, rating, year_pub, date_pub, date_pub_edition, 
+                                    date_started, date_read, date_updated, date_added, recommender, 
+                                    avg_rating, num_ratings, review, read_count, votes, random
+          --search=<query>          query to search through a users list of books
+          --order=<order>           a, d (optional)
+          --page=<n>                1-N (optional)
+          --per_page=<n>            1-200 (optional)
+        """
+        self.auth_authenticate(args)
+        if not self.session:
+            raise GRSessionError("No authenticated session.")
+            
+        user_id = args.get('--user_id')
+        
+        if not user_id:
+            raise Exception("--user_id needed ")
+        
+        shelf = args.get('--shelf')
+        sort = args.get('--sort')
+        search = args.get('--search')
+        order = args.get('--order')
+        page = args.get('--page')
+        per_page = args.get('--per_page')
+        
+        print(args)
+        
+        
+        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml', 
+                   'v': 2, 'shelf': shelf, 'order': order,
+                   'sort': sort, 'page': page,  'per_page': per_page,
+                   'search': search
+                   }
+        r = self.session.get(self.host + "/review/list/" +user_id, payload)
+        
+#         print(xmltodict.parse(r.text))
+        print(r.text)
+        return
+    
+    
     
 class GRRequestError(Exception):
     """ Custom request exception """
