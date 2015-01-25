@@ -32,6 +32,7 @@ User commands::
   review
   shelf                get the list of books from a specific shelf
   shelves              get the list of the shelves the user has (read, to-read, etc)
+  authors              get a list of the authors that the user has read from infile
   
 Subcommands, use ``gr help [subcommand]`` to learn more::
 
@@ -42,42 +43,63 @@ Subcommands, use ``gr help [subcommand]`` to learn more::
   topic
 
 Options:
-  -h --help     Show this screen.
-  --version     Show version.
+  -h --help           Show this screen.
+  --version           Show version.
+  --outfile=FILE      Output location
+  --format=FORMAT     Output format 
+  --infile=FILE       Some input files - can be anything  
   
 NOTE: make sure you set up your environment variables or store the account information locally in 
 '''
 from docopt import docopt
 from docopt import DocoptExit
 import json
-import locale
 import logging
-import os.path
-import re
 import requests
-import subprocess
 import sys
-import time
-import datetime
-import urlparse
 import urllib
 import webbrowser
 import xmltodict
 import httplib2
+import os
+from dicttoxml import dicttoxml
 from termcolor import colored
-import pprint
 from client.session import GRSession, GRSessionError
+from collections import OrderedDict
+from pprint import pprint
+import xml.etree.ElementTree as ET
+from client.response import GRResponse, ResponseFormatter
+
+
 
 __version__ = "0.1.0"
 __author__ = "Steven Scott"
 __license__ = "MIT"
 
 
+SHORTCUTS = OrderedDict([
+    ('create', 'apps:create'),
+    ('destroy', 'apps:destroy'),
+    ('whoami', 'auth:whoami'),
+])       
+
+
 def _dispatch_cmd(method, args):
     logger = logging.getLogger(__name__)
-
+    logger.info('In dispatch with args')
+    
+    """
+    Setting up the common parameters
+    General items are output of file etc
+    Formatting. 
+    User Information. 
+    Keys
+    """
     try:
-        method(args)
+        # a mixed response will come back 
+        response = method(args)
+        handle_output(response, args)
+        
     except EnvironmentError as err:
         logger.error(err.args[0])
         sys.exit(1)
@@ -93,12 +115,41 @@ def _dispatch_cmd(method, args):
         logger.info(msg)
         sys.exit(1)
 
+def handle_output(response, args):
+    logger = logging.getLogger(__name__)
+    """
+    Take the response from the function call and see what we need to do with it.
+     
+    """
+    outfile = args.get('--outfile')
+    outfile_format = args.get('--format')
+    
+    if not outfile_format:
+        outfile_format = 'xml'
+        
+    logger.info('Outfile format: ' + outfile_format)
+    
+    rf = ResponseFormatter()
+    retvals = rf.get_formatted_response(response, outfile_format)
+    
+    if outfile:
+        logger.info('Opening the outfile file ' + outfile)
+        f = open(outfile,'w')
+        logger.info('preppring write')
+        f.write(retvals)
+        f.close()
+        return
+    
+    print(retvals)
+    return retvals
+    
+
 def _init_logger():
     logger = logging.getLogger(__name__)
     handler = logging.StreamHandler(sys.stdout)
     # TODO: add a --debug flag
-    logger.setLevel(logging.INFO)
-    handler.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
+    handler.setLevel(logging.DEBUG)
     logger.addHandler(handler)
     
 def trim(docstring):
@@ -135,7 +186,6 @@ def trim(docstring):
 
 class ResponseError(Exception):
     pass
-
 
 
 class GRClient():
@@ -187,7 +237,6 @@ class GRClient():
                                  access_token_secret)
 
         if access_token and access_token_secret:
-            print("resuming session")
             self.session.oauth_resume()
         else: # Access not yet granted, allow via browser
             url = self.session.oauth_start()
@@ -206,7 +255,7 @@ class GRClient():
         if not self.session:
             print(self.session)
             raise GRSessionError("No authenticated session.")
-        print(self.session.access_token, self.session.access_token_secret)
+        
         return self.session.access_token, self.session.access_token_secret
 
     
@@ -247,8 +296,10 @@ class GRClient():
 
         Options:
           -a --author_id=<author_id>    author id
+          --outfile=FILE      Output location
+          --format=FORMAT    Output format 
         """
-        print(args)
+        #print(args)
         author_id = args.get('--author_id')
         
         if not author_id:
@@ -259,7 +310,7 @@ class GRClient():
         
         print(xmltodict.parse(r.text))
         print(r.text)
-        return
+        return 
     
     def author_books(self,args):
         """
@@ -276,6 +327,7 @@ class GRClient():
         user:friends    Get a list of the user's friends
         user:shelves    Get the user's shelves
         user:shelf      Get the list of books from a specific shelf 
+        user:authors    Get the authors for this user's read books - OFFLINE OP
 
         Use `gr help [command]` to learn more.
         """
@@ -290,22 +342,22 @@ class GRClient():
 
         Options:
           -u --user_id=<user_id>    GR user id
+          --outfile=FILE      Output location
+          --format=FORMAT    Output format 
         """
         self.auth_authenticate(args)
         if not self.session:
             raise GRSessionError("No authenticated session.")
-        print(args)
+        #print(args)
         user_id = args.get('--user_id')
         
         if not user_id:
             raise Exception("--user_id needed ")
         
         payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
-        r = self.session.get(self.host + "/owned_books/user", payload)
+        return self.session.get(self.host + "/owned_books/user", payload)
         
 #         print(xmltodict.parse(r.text))
-        print(r.text)
-        return
     
     def user_friends(self,args):
         """
@@ -315,24 +367,26 @@ class GRClient():
 
         Options:
           -u --user_id=<user_id>    GR user id
+          --outfile=FILE      Output location
+          --format=FORMAT    Output format 
         """
+        print(args)
+        return
         self.auth_authenticate(args)
         if not self.session:
             raise GRSessionError("No authenticated session.")
             
-        print(args)
+        #print(args)
         user_id = args.get('--user_id')
         
         if not user_id:
             raise Exception("--user_id needed ")
         
         payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
-        r = self.session.get(self.host + "/friend/user/" +user_id, payload)
+        return self.session.get(self.host + "/friend/user/" +user_id, payload)
         
 #         print(xmltodict.parse(r.text))
-        print(r.text)
-        return
-    
+
     def user_shelves(self,args):
         """
         Show the users list of shelves 
@@ -341,12 +395,14 @@ class GRClient():
 
         Options:
           -u --user_id=<user_id>    GR user id
+          --outfile=FILE      Output location
+          --format=FORMAT    Output format 
         """
         self.auth_authenticate(args)
         if not self.session:
             raise GRSessionError("No authenticated session.")
             
-        print(args)
+        #print(args)
         user_id = args.get('--user_id')
         
         if not user_id:
@@ -375,6 +431,8 @@ class GRClient():
           --order=<order>           a, d (optional)
           --page=<n>                1-N (optional)
           --per_page=<n>            1-200 (optional)
+          --outfile=FILE            Output location
+          --format=FORMAT           Output format 
         """
         self.auth_authenticate(args)
         if not self.session:
@@ -392,22 +450,52 @@ class GRClient():
         page = args.get('--page')
         per_page = args.get('--per_page')
         
-        print(args)
-        
-        
         payload = {'id': user_id, 'key': self.client_id, 'format': 'xml', 
                    'v': 2, 'shelf': shelf, 'order': order,
                    'sort': sort, 'page': page,  'per_page': per_page,
                    'search': search
                    }
-        r = self.session.get(self.host + "/review/list/" +user_id, payload)
+        return self.session.get(self.host + "/review/list/" +user_id, payload)
+    
+    def user_authors(self,args):
+        """
+        Show or parse the users list of read authors. 
+        OFFLINE operation - must have run user:shelf to get theset values 
+        This must be run after the user:shelf command has created the downloaded list of books
+        Output can be either JSON CSV or XML 
+
+        Usage: gr user:authors [options]
+
+        Options:
+          -u --user_id=<user_id>    GR user id
+          -s --shelf=<shelf>        [default: 'read']
+          --infile=FILE             Input file - might be list of reviews already downloaded 
+          --outfile=FILE            Output location
+          --format=FORMAT           Output format
+        """
+        self._logger.info('users:authors - starting ')
+        infile = args.get('--infile')
         
-#         print(xmltodict.parse(r.text))
-        print(r.text)
-        return
-    
-    
-    
+        if not infile:
+            raise Exception('This is an offline operation - profide a file --infile downloaded with user:shelf ')
+        
+        if not os.path.isfile(infile):
+            raise Exception('Invalid file ' + infile)
+        
+        tree = ET.parse(infile)
+        root = tree.getroot()
+        authroot = {}
+        for author in root.iter('author'):
+            aid = int(author.find('id').text)
+            authroot[aid] = {
+                'name': author.find('name').text.strip('\n'),
+                'image_url': author.find('image_url').text.strip('\n'),
+                'small_image_url': author.find('small_image_url').text.strip('\n'),
+                'link': author.find('link').text.strip('\n')
+                             }
+        
+        return GRResponse(json.dumps(authroot), 'json')
+            
 class GRRequestError(Exception):
     """ Custom request exception """
     def __init__(self, error_msg, url):
@@ -450,27 +538,7 @@ class GRRequest:
             raise GRRequestError(data_dict['error'], url_extension)
         return data_dict['GRResponse']
 
-from collections import OrderedDict
-SHORTCUTS = OrderedDict([
-    ('create', 'apps:create'),
-    ('destroy', 'apps:destroy'),
-    ('info', 'apps:info'),
-    ('login', 'auth:login'),
-    ('logout', 'auth:logout'),
-    ('logs', 'apps:logs'),
-    ('open', 'apps:open'),
-    ('passwd', 'auth:passwd'),
-    ('pull', 'builds:create'),
-    ('register', 'auth:register'),
-    ('rollback', 'releases:rollback'),
-    ('run', 'apps:run'),
-    ('scale', 'ps:scale'),
-    ('sharing', 'perms:list'),
-    ('sharing:list', 'perms:list'),
-    ('sharing:add', 'perms:create'),
-    ('sharing:remove', 'perms:delete'),
-    ('whoami', 'auth:whoami'),
-])       
+
 
 def parse_args(cmd):
     """
