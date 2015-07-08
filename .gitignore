@@ -47,3 +47,5 @@ README.html
 /.settings/org.eclipse.core.resources.prefs
 
 /include/
+
+/.env
