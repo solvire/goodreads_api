@@ -51,8 +51,6 @@ Options:
   
 NOTE: make sure you set up your environment variables or store the account information locally in 
 '''
-from docopt import docopt
-from docopt import DocoptExit
 import json
 import logging
 import requests
@@ -62,14 +60,17 @@ import webbrowser
 import xmltodict
 import httplib2
 import os
+import xml.etree.ElementTree as ET
+from docopt import docopt
+from docopt import DocoptExit
+from posixpath import expanduser
 from dicttoxml import dicttoxml
 from termcolor import colored
 from client.session import GRSession, GRSessionError
 from collections import OrderedDict
 from pprint import pprint
-import xml.etree.ElementTree as ET
 from client.response import GRResponse, ResponseFormatter
-
+from ConfigParser import RawConfigParser
 
 
 __version__ = "0.1.0"
@@ -140,7 +141,7 @@ def handle_output(response, args):
         f.close()
         return
     
-    print(retvals)
+    print(response)
     return retvals
     
 
@@ -192,20 +193,41 @@ class GRClient():
     '''Gr Client'''
     
     session = None
+    config = None
+    auth_section = 'secrets'
     host = "https://www.goodreads.com"
-    client_id = "fhKd7UFFtWKFXU779QS2mA"
-    client_secret = 'LJDsWEfkzMXoP3do8mJO04ZrTjJAQlL0b9Wiuz0f7qY'
+    env_file = ""
+    client_id = ""
+    client_secret = ""
     key = "nPwv45LOlOfy0dry1C7Gcw"
     secret = "78pLJTFAsdVvaJDteOD8WoEuwTEW8f3ixN7W1gzWhK4"
     
+    
     def __init__(self):
         self._logger = logging.getLogger(__name__)
+        self.setup_config()
+
+
+    def setup_config(self):        
+        self.config = RawConfigParser()
+        self.env_file = expanduser('~') + '/.goodreads_api.ini';
+        self.config.read(self.env_file)
+        
+        if not self.config.has_section(self.auth_section):
+            print('Setting up config with section: ' + self.auth_section)
+            self.config.add_section(self.auth_section)
+            self.config.set(self.auth_section, 'ACCESS_TOKEN', None)
+            self.config.set(self.auth_section, 'ACCESS_TOKEN_SECRET', None)
+            
+        self.key = self.config.get(self.auth_section, 'ACCESS_TOKEN')
+        self.secret = self.config.get(self.auth_section, 'ACCESS_TOKEN_SECRET')
+        self.config.write(self.env_file)
 
     def auth(self, args):
         """
         Valid commands for auth:
 
-        auth:login        authenticate 
+        auth:authenticate        authenticate 
         auth:user         Get id of user who authorized OAuth. 
 
         Use `gr help [command]` to learn more.
@@ -214,19 +236,29 @@ class GRClient():
     
     def auth_authenticate(self, args):
         """ 
-        Go through Open Auththenication process.
+        Go through Open Authentication process.
 
         Usage: gr auth:authenticate [options]
 
         Options:
-          --key=<key>
-            provide a key
-          --secret=<secret>
-            provide a secret
+          --client_id=<client_id>
+            provide a client_id
+          --client_secret=<client_secret>
+            provide a client_secret
+          --access_token=<access_token>
+            a user access token
+          --access_token_secret=<access_token_secret>
+            a user access token secret
         """
+        self.client_id = args.get('--client_id')
+        self.client_secret = args.get('--client_secret')
+
+
         access_token = args.get('--access_token')
+        # was the key loaded from config 
         if not access_token and self.key:
             access_token = self.key
+            
         access_token_secret = args.get('--access_token_secret')
         if not access_token_secret and self.secret:
             access_token_secret = self.secret
@@ -239,12 +271,17 @@ class GRClient():
         if access_token and access_token_secret:
             self.session.oauth_resume()
         else: # Access not yet granted, allow via browser
+            print("Getting OAuth")
             url = self.session.oauth_start()
             webbrowser.open(url)
             while raw_input('Have you authorized me? (y/n) ') != 'y':
                 pass
             self.session.oauth_finish()
             self.auth_access_tokens(args)
+            print("AccessToken: " + self.session.access_token)
+            print("AccessTokenSecret: " + self.session.access_token_secret)
+            self.config.set(self.auth_section,'ACCESS_TOKEN',self.session.access_token)
+            self.config.set(self.auth_section,'ACCESS_TOKEN_SECRET',self.session.access_token_secret)
 
     def auth_access_tokens(self,args):
         """ 
@@ -263,6 +300,8 @@ class GRClient():
         """
         Get id of user who authorized OAuth.
         """
+        print(self.session)
+        print("in user")
         self.auth_authenticate(args)
         if not self.session:
             raise GRSessionError("No authenticated session.")
@@ -284,9 +323,10 @@ class GRClient():
 
         Use `gr help [command]` to learn more.
         """
-        sys.argv[1] = 'author:info'
-        args = docopt(self.author_info.__doc__)
-        return self.author_info(args)
+#         sys.argv[1] = 'author:info'
+#         args = docopt(self.author_info.__doc__)
+#         return self.author_info(args)
+        return
     
     def author_info(self,args):
         """
@@ -295,11 +335,11 @@ class GRClient():
         Usage: gr author:info [options]
 
         Options:
-          -a --author_id=<author_id>    author id
-          --outfile=FILE      Output location
-          --format=FORMAT    Output format 
+          -a --author_id=<author_id>   Author ID
+          --outfile=FILE               Output location
+          --format=FORMAT              Output format 
         """
-        #print(args)
+        print(args)
         author_id = args.get('--author_id')
         
         if not author_id:

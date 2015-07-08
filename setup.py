@@ -6,7 +6,7 @@ from setuptools.command.test import test as TestCommand
 
 
 REQUIRES = [
-    'docopt','rauth','xmltodict','dicttoxml'
+    'docopt','rauth','xmltodict','dicttoxml','httplib2','termcolor','posixpath'
 ]
 
 class PyTest(TestCommand):
@@ -52,7 +52,7 @@ setup(
     long_description=read("README.rst"),
     author='Steven Scott',
     author_email='stevenjscott@gmail.com',
-    url='https://github.com/solvire/gr',
+    url='https://github.com/solvire/goodreads_api',
     install_requires=REQUIRES,
     license=read("LICENSE"),
     zip_safe=False,
@@ -69,7 +69,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy'
     ],
-    py_modules=["gr"],
+    py_modules=["gr",'client'],
     entry_points={
         'console_scripts': [
             "gr = gr:main"
