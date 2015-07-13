@@ -225,10 +225,17 @@ class GRClient():
             self.key = self.config.get(self.auth_section, 'ACCESS_TOKEN')
             self.secret = self.config.get(self.auth_section, 'ACCESS_TOKEN_SECRET')
             
+        if not self.config.has_option(self.auth_section, 'CLIENT_ID'):
+            self.config.set(self.auth_section, 'CLIENT_ID', '')
+            self.config.set(self.auth_section, 'CLIENT_SECRET', '')
+        else:
+            self.client_id = self.config.get(self.auth_section, 'CLIENT_ID')
+            self.client_secret = self.config.get(self.auth_section, 'CLIENT_SECRET')
+            
         
-        print('secrets')
-        print(self.secret)
-        print(self.secret == None)
+#         print('secrets')
+#         print(self.secret)
+#         print(self.secret == None)
         
         self.write_config()
             
@@ -268,7 +275,7 @@ class GRClient():
 
         self.client_id = args.get('--client_id')
         self.client_secret = args.get('--client_secret')
-
+        
 
         access_token = args.get('--access_token')
         # was the key loaded from config 
@@ -327,7 +334,7 @@ class GRClient():
         if not self.session:
             raise GRSessionError("No authenticated session.")
 
-        data_dict = self.session.get(self.host + 'api/auth_user', {'format':'xml'})
+        data_dict = self.session.get(self.host + '/api/auth_user', {'format':'xml'})
         # Parse response
         user_id = data_dict['user']['@id']
         name = data_dict['user']['name']
@@ -344,9 +351,6 @@ class GRClient():
 
         Use `gr help [command]` to learn more.
         """
-#         sys.argv[1] = 'author:info'
-#         args = docopt(self.author_info.__doc__)
-#         return self.author_info(args)
         return
     
     def author_info(self,args):
@@ -361,17 +365,18 @@ class GRClient():
           --format=FORMAT              Output format 
         """
         self._logger.info(args)
+            
         author_id = args.get('--author_id')
         
         if not author_id:
             raise Exception("--author_id needed ")
         
         payload = {'id': author_id, 'key': self.client_id }
+        print(payload)
         r = requests.get(self.host + "/author/show.xml", params=payload)
         
         print(xmltodict.parse(r.text))
-        print(r.text)
-        return 
+        return r
     
     def author_books(self,args):
         """

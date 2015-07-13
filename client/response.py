@@ -48,7 +48,7 @@ class ResponseFormatter:
         self._logger = logging.getLogger(__name__)
         return
     
-    def get_formatted_response(self,response,response_type):
+    def get_formatted_response(self,response,output_type):
         """
         Gets the form of the response and returns back the type as a string
         
@@ -56,16 +56,18 @@ class ResponseFormatter:
         if(response is None):
             raise Exception("Invalid response type None")
         
-        self._logger.info('In Formatting - with ' + response.get_content_type() + ' and ' + response_type)
+        response_content_type = response.headers['content-type']
+        
+        self._logger.info('In Formatting - with ' + response_content_type + ' and ' + output_type)
         #TODO need to set up a check on the content type incase we fibbing 
         
-        if response.content_type == response_type:
+        if response_content_type == output_type:
             return response.get_content()
         
-        if response.content_type == 'dict' and response_type == 'xml':
+        if response_content_type == 'dict' and output_type == 'xml':
             return dicttoxml(response.get_content())
         
-        if response.content_type == 'dict' and response_type == 'json':
+        if response_content_type == 'dict' and output_type == 'json':
             return json.dumps(response.get_content())
         
         

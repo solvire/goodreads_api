@@ -20,12 +20,7 @@ class GRSession:
         self.access_token = access_token
         self.access_token_secret = access_token_secret
         self.request_token = None;
-
-
-    def oauth_start(self):
-        """ Start oauth, get tokens return authorization url"""
-        # Create auth service
-        goodreads_service = OAuth1Service(
+        self.goodreads_service = OAuth1Service(
             consumer_key=self.client_key,
             consumer_secret=self.client_secret,
             name='goodreads',
@@ -35,15 +30,17 @@ class GRSession:
             base_url='http://www.goodreads.com/'
             )
 
+
+    def oauth_start(self):
+        """ Start oauth, get tokens return authorization url"""
+        # Create auth service
+
         # Get tokens and authorization link
         self.request_token, self.request_token_secret = \
             goodreads_service.get_request_token(header_auth=True)
 
-        authorize_url = goodreads_service.get_authorize_url(self.request_token)
+        authorize_url = self.goodreads_service.get_authorize_url(self.request_token)
         print 'To authorize access visit: ' + authorize_url
-
-        # Store service for finishing
-        self.goodreads_service = goodreads_service
 
         return authorize_url
 
@@ -58,13 +55,16 @@ class GRSession:
 
     def oauth_resume(self):
         """ Create a session when access tokens are already available """
-        self.session = OAuth1Session(
-            consumer_key=self.client_key,
-            consumer_secret=self.client_secret,
-            access_token=self.access_token,
-            access_token_secret=self.access_token_secret)
-        
-#         self.session = self.goodreads_service.get_auth_session(self.access_token, self.access_token_secret)
+#         self.session = OAuth1Session(
+#             consumer_key=self.client_key,
+#             consumer_secret=self.client_secret,
+#             access_token=self.access_token,
+#             access_token_secret=self.access_token_secret)
+#         
+
+        print("resuming with: " + self.access_token)
+        self.session = self.goodreads_service.get_auth_session(self.access_token, self.access_token_secret)
+        return self.session
 
     def post(self, url, data={}):
         """  """
@@ -85,6 +85,7 @@ class GRSession:
         if len(data) > 0:
             url += '?'
             
+        print(url)
         response = self.session.get(url, params=data)
         if response.status_code == 200:
             return response
