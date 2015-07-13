@@ -19,6 +19,7 @@ class GRSession:
         self.client_secret = client_secret
         self.access_token = access_token
         self.access_token_secret = access_token_secret
+        self.request_token = None;
 
 
     def oauth_start(self):
@@ -58,11 +59,12 @@ class GRSession:
     def oauth_resume(self):
         """ Create a session when access tokens are already available """
         self.session = OAuth1Session(
-                        consumer_key = self.client_key,
-                        consumer_secret = self.client_secret,
-                        access_token = self.access_token,
-                        access_token_secret = self.access_token_secret,
-                    )
+            consumer_key=self.client_key,
+            consumer_secret=self.client_secret,
+            access_token=self.access_token,
+            access_token_secret=self.access_token_secret)
+        
+#         self.session = self.goodreads_service.get_auth_session(self.access_token, self.access_token_secret)
 
     def post(self, url, data={}):
         """  """

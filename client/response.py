@@ -53,6 +53,9 @@ class ResponseFormatter:
         Gets the form of the response and returns back the type as a string
         
         """
+        if(response is None):
+            raise Exception("Invalid response type None")
+        
         self._logger.info('In Formatting - with ' + response.get_content_type() + ' and ' + response_type)
         #TODO need to set up a check on the content type incase we fibbing 
         

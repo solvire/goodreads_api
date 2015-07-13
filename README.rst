@@ -34,6 +34,7 @@ To get things going set up a virtualenv. I prefer the `virtualenvwrapper`. It ma
 	cd goodreads_api/
 	mkvirtualenv gr
 	python setup.py install
+	touch ~/.goodreads_api.ini
 	
 
 I have found to be _autoenv_ https://github.com/kennethreitz/autoenv useful on this project since I don't touch it very often.
