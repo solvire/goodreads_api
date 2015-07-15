@@ -82,13 +82,11 @@ SHORTCUTS = OrderedDict([
     ('create', 'apps:create'),
     ('destroy', 'apps:destroy'),
     ('whoami', 'auth:whoami'),
-])       
+])
 
 
 def _dispatch_cmd(method, args):
     logger = logging.getLogger(__name__)
-    logger.info('In dispatch with args')
-    
     """
     Setting up the common parameters
     General items are output of file etc
@@ -134,14 +132,16 @@ def handle_output(response, args):
     retvals = rf.get_formatted_response(response, outfile_format)
     
     if outfile:
-        logger.info('Opening the outfile file ' + outfile)
-        f = open(outfile,'w')
+        logger.info('Opening the outfile file: ' + outfile)
+        f = open(outfile, 'w')
         logger.info('preppring write')
-        f.write(retvals)
+        f.write(retvals.encode('utf-8').strip())
         f.close()
         return
-    
-    print(response)
+    else:
+        logger.info('no output file: stdout')
+        print(retvals)
+        
     return retvals
     
 
@@ -215,7 +215,6 @@ class GRClient():
 #         self.config.read(self.env_file)
         
         if not self.config.has_section(self.auth_section):
-            print('Setting up config with section: ' + self.auth_section)
             self.config.add_section(self.auth_section)
             
         if not self.config.has_option(self.auth_section, 'ACCESS_TOKEN'):
@@ -232,11 +231,6 @@ class GRClient():
             self.client_id = self.config.get(self.auth_section, 'CLIENT_ID')
             self.client_secret = self.config.get(self.auth_section, 'CLIENT_SECRET')
             
-        
-#         print('secrets')
-#         print(self.secret)
-#         print(self.secret == None)
-        
         self.write_config()
             
             
@@ -289,15 +283,15 @@ class GRClient():
         if access_token:
             self._logger.info("Can resume with access_token: " + access_token + " AND access_token_secret: " + access_token_secret)
         
-        self.session = GRSession(self.client_id, 
+        self.session = GRSession(self.client_id,
                                  self.client_secret,
-                                 access_token, 
+                                 access_token,
                                  access_token_secret)
 
         if access_token and access_token_secret:
             self._logger.info("Resuming Session")
             self.session.oauth_resume()
-        else: # Access not yet granted, allow via browser
+        else:  # Access not yet granted, allow via browser
             self._logger.info("Getting OAuth")
             url = self.session.oauth_start()
             webbrowser.open(url)
@@ -307,11 +301,11 @@ class GRClient():
             self.auth_access_tokens(args)
             self._logger.info("AccessToken: " + self.session.access_token)
             self._logger.info("AccessTokenSecret: " + self.session.access_token_secret)
-            self.config.set(self.auth_section,'ACCESS_TOKEN',self.session.access_token)
-            self.config.set(self.auth_section,'ACCESS_TOKEN_SECRET',self.session.access_token_secret)
+            self.config.set(self.auth_section, 'ACCESS_TOKEN', self.session.access_token)
+            self.config.set(self.auth_section, 'ACCESS_TOKEN_SECRET', self.session.access_token_secret)
             self.write_config()
 
-    def auth_access_tokens(self,args):
+    def auth_access_tokens(self, args):
         """ 
         Return access tokens for storage, so that sessions can be 
         resumed easily.
@@ -353,7 +347,7 @@ class GRClient():
         """
         return
     
-    def author_info(self,args):
+    def author_info(self, args):
         """
         Show the authors information page 
 
@@ -372,13 +366,12 @@ class GRClient():
             raise Exception("--author_id needed ")
         
         payload = {'id': author_id, 'key': self.client_id }
-        print(payload)
+        self._logger.info(payload)
         r = requests.get(self.host + "/author/show.xml", params=payload)
         
-        print(xmltodict.parse(r.text))
         return r
     
-    def author_books(self,args):
+    def author_books(self, args):
         """
         Get the list of books from this author
         """
@@ -400,7 +393,7 @@ class GRClient():
         return  
     
     
-    def user_books(self,args):
+    def user_books(self, args):
         """
         Show the users list of books 
 
@@ -414,18 +407,18 @@ class GRClient():
         self.auth_authenticate(args)
         if not self.session:
             raise GRSessionError("No authenticated session.")
-        #print(args)
+
         user_id = args.get('--user_id')
         
         if not user_id:
             raise Exception("--user_id needed ")
         
-        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
-        return self.session.get(self.host + "/owned_books/user", payload)
         
-#         print(xmltodict.parse(r.text))
+        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
+        self._logger.info(payload)
+        return requests.get(self.host + "/owned_books/user", params=payload)
     
-    def user_friends(self,args):
+    def user_friends(self, args):
         """
         Show the users list of books 
 
@@ -442,18 +435,16 @@ class GRClient():
         if not self.session:
             raise GRSessionError("No authenticated session.")
             
-        #print(args)
+        # print(args)
         user_id = args.get('--user_id')
         
         if not user_id:
             raise Exception("--user_id needed ")
         
         payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
-        return self.session.get(self.host + "/friend/user/" +user_id, payload)
+        return self.session.get(self.host + "/friend/user/" + user_id, payload)
         
-#         print(xmltodict.parse(r.text))
-
-    def user_shelves(self,args):
+    def user_shelves(self, args):
         """
         Show the users list of shelves 
 
@@ -468,20 +459,16 @@ class GRClient():
         if not self.session:
             raise GRSessionError("No authenticated session.")
             
-        #print(args)
+        # print(args)
         user_id = args.get('--user_id')
         
         if not user_id:
             raise Exception("--user_id needed ")
         
         payload = {'id': user_id, 'key': self.client_id, 'format': 'xml' }
-        r = self.session.get(self.host + "/shelf/list/" +user_id, payload)
-        
-#         print(xmltodict.parse(r.text))
-        self._logger.info(r.text)
-        return
+        return self.session.get(self.host + "/shelf/list/" + user_id, payload)
     
-    def user_shelf(self,args):
+    def user_shelf(self, args):
         """
         Show the users list of books on a shelf 
 
@@ -516,14 +503,14 @@ class GRClient():
         page = args.get('--page')
         per_page = args.get('--per_page')
         
-        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml', 
+        payload = {'id': user_id, 'key': self.client_id, 'format': 'xml',
                    'v': 2, 'shelf': shelf, 'order': order,
-                   'sort': sort, 'page': page,  'per_page': per_page,
+                   'sort': sort, 'page': page, 'per_page': per_page,
                    'search': search
                    }
-        return self.session.get(self.host + "/review/list/" +user_id, payload)
+        return self.session.get(self.host + "/review/list/" + user_id, payload)
     
-    def user_authors(self,args):
+    def user_authors(self, args):
         """
         Show or parse the users list of read authors. 
         OFFLINE operation - must have run user:shelf to get theset values 
@@ -587,7 +574,7 @@ class GRRequest:
         """ """
         h = httplib2.Http('.cache')
         url_extension = self.path + urllib.urlencode(self.query_dict)
-        response, content  = h.request(self.host + url_extension, "GET")
+        response, content = h.request(self.host + url_extension, "GET")
 
         # Check success
         if response['status'] != '200':
@@ -635,7 +622,7 @@ def main():
     '''Main entry point for the gr CLI.'''
     _init_logger()
     cli = GRClient()
-    args = docopt(__doc__, version=__version__,options_first=True)
+    args = docopt(__doc__, version=__version__, options_first=True)
     cmd = args['<command>']
     cmd, help_flag = parse_args(cmd)
     # print help if it was asked for

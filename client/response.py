@@ -5,6 +5,7 @@ Created on Jan 24, 2015
 '''
 import json
 import logging
+import xmltodict
 from dicttoxml import dicttoxml
 
 class GRResponse:
@@ -55,19 +56,21 @@ class ResponseFormatter:
         """
         if(response is None):
             raise Exception("Invalid response type None")
-        
+
         response_content_type = response.headers['content-type']
         
         self._logger.info('In Formatting - with ' + response_content_type + ' and ' + output_type)
         #TODO need to set up a check on the content type incase we fibbing 
         
-        if response_content_type == output_type:
-            return response.get_content()
+        if output_type == 'xml':
+            print("Returning the xml type")
+            return response.text
         
-        if response_content_type == 'dict' and output_type == 'xml':
-            return dicttoxml(response.get_content())
+        if output_type == 'json':
+            print("Returning the json type")
+            return json.dumps(xmltodict.parse(response.text))
         
-        if response_content_type == 'dict' and output_type == 'json':
-            return json.dumps(response.get_content())
-        
+        if output_type == 'dict':
+            print("Returning dict type")
+            return xmltodict.parse(response.text)
         
